@@ -7,6 +7,8 @@ where
 import Data.Foldable
 import Data.Function
 import Distribution.Types.Version (Version)
+import Log (object, (.=))
+import Log qualified
 import Lucid
 import Lucid.Orphans ()
 import Servant (ServerT)
@@ -21,6 +23,7 @@ import Flora.Search qualified as Search
 import FloraWeb.Routes.Pages.Packages
 import FloraWeb.Server.Auth
 import FloraWeb.Server.Guards
+import FloraWeb.Server.Logging
 import FloraWeb.Session
 import FloraWeb.Templates
 import FloraWeb.Templates.Packages.Dependencies qualified as PackageDependencies
@@ -28,7 +31,6 @@ import FloraWeb.Templates.Packages.Dependents qualified as PackageDependents
 import FloraWeb.Templates.Packages.Versions qualified as PackageVersions
 import FloraWeb.Templates.Pages.Packages qualified as Packages
 import FloraWeb.Templates.Pages.Search qualified as Search
-import Log qualified
 
 server :: ServerT Routes FloraPage
 server =
@@ -68,11 +70,21 @@ showPackageVersion namespace packageName version = do
   release <- guardThatReleaseExists namespace packageName version
   releases <- Query.getReleases (package.packageId)
   numberOfReleases <- Query.getNumberOfReleases (package.packageId)
-  dependents <- Query.getPackageDependents namespace packageName
-  releaseDependencies <- Query.getRequirements (release.releaseId)
+  (dependents, dependentsRetrievalDuration) <- timeAction $ Query.getPackageDependents namespace packageName
+  (releaseDependencies, dependenciesRetrievalDuration) <- timeAction $ Query.getRequirements (release.releaseId)
   categories <- Query.getPackageCategories (package.packageId)
   numberOfDependents <- Query.getNumberOfPackageDependents namespace packageName
   numberOfDependencies <- Query.getNumberOfPackageRequirements (release.releaseId)
+  Log.logInfo "displaying package" $
+    object
+      [ "package" .= (display namespace <> "/" <> display packageName)
+      , "version" .= display release.version
+      , "dependencies_retrieval_duration" .= dependenciesRetrievalDuration
+      , "dependencies_count" .= numberOfDependencies
+      , "dependents_retrieval_duration" .= dependentsRetrievalDuration
+      , "dependents_count" .= numberOfDependents
+      ]
+
   render templateEnv $
     Packages.showPackage
       release

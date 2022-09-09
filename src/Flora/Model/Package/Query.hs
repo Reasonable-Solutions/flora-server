@@ -223,15 +223,8 @@ getAllRequirements releaseId = do
       ]
   pure result
 
-getRequirements :: ([DB, Logging, Time, IOE] :>> es) => ReleaseId -> Eff es (Vector (Namespace, PackageName, Text))
-getRequirements releaseId = do
-  (result, duration) <- timeAction $ dbtToEff $ query Select (getRequirementsQuery <> " LIMIT 6") (Only releaseId)
-  Log.logInfo "Retrieving limited dependencies of a release" $
-    object
-      [ "duration" .= duration
-      , "release_id" .= releaseId
-      ]
-  pure result
+getRequirements :: ([DB, IOE] :>> es) => ReleaseId -> Eff es (Vector (Namespace, PackageName, Text))
+getRequirements releaseId = dbtToEff $ query Select (getRequirementsQuery <> " LIMIT 6") (Only releaseId)
 
 {- | This query finds all the dependencies of a release,
  and displays their namespace, name and the requirement spec (version range) expressed by the dependent.
