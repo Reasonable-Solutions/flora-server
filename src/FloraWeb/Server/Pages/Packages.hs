@@ -7,6 +7,7 @@ where
 import Data.Foldable
 import Data.Function
 import Distribution.Types.Version (Version)
+import Data.Vector qualified as Vector
 import Log (object, (.=))
 import Log qualified
 import Lucid
@@ -116,8 +117,17 @@ showDependenciesHandler namespace packageName = do
   package <- guardThatPackageExists namespace packageName
   releases <- Query.getAllReleases (package.packageId)
   let latestRelease = maximumBy (compare `on` version) releases
-  latestReleasedependencies <-
+  (latestReleasedependencies, duration) <- timeAction $
     Query.getAllRequirements (latestRelease.releaseId)
+
+  Log.logInfo "Retrieving all dependencies of the latest release of a package" $
+    object
+      [ "duration" .= duration
+      , "package" .= (display namespace <> "@" <> display packageName)
+      , "release_id" .= latestRelease.releaseId
+      , "dependencies_count" .= (Vector.length latestReleasedependencies)
+      ]
+
   render templateEnv $
     PackageDependencies.showDependencies
       ("Dependencies of " <> display namespace <> "/" <> display packageName)

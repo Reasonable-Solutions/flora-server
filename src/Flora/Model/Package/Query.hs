@@ -6,7 +6,6 @@ module Flora.Model.Package.Query where
 import Data.Text (Text)
 import Data.Text.Display
 import Data.Vector (Vector)
-import Data.Vector qualified as Vector
 import Database.PostgreSQL.Entity
   ( joinSelectOneByField
   , selectById
@@ -213,15 +212,7 @@ getAllRequirements ::
   ReleaseId ->
   -- | Returns a vector of (Namespace, Name, dependency requirement, version of latest of release of dependency, synopsis of dependency)
   Eff es (Vector (Namespace, PackageName, Text, Version, Text))
-getAllRequirements releaseId = do
-  (result, duration) <- timeAction $ dbtToEff $ query Select getAllRequirementsQuery (Only releaseId)
-  Log.logInfo "Retrieving all dependencies of a release" $
-    object
-      [ "duration" .= duration
-      , "release_id" .= releaseId
-      , "dependencies_count" .= Vector.length result
-      ]
-  pure result
+getAllRequirements releaseId = dbtToEff $ query Select getAllRequirementsQuery (Only releaseId)
 
 getRequirements :: ([DB, IOE] :>> es) => ReleaseId -> Eff es (Vector (Namespace, PackageName, Text))
 getRequirements releaseId = dbtToEff $ query Select (getRequirementsQuery <> " LIMIT 6") (Only releaseId)
